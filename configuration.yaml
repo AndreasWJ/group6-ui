@@ -25,12 +25,12 @@ panel_custom:
     config:
       # Data you want to make available to panel
       hello: world
-  - name: recipe-panel-89
+  - name: recipe-panel-99
     # url_path needs to be unique for each panel_custom config
     url_path: recipes
     sidebar_title: Recipes
     sidebar_icon: mdi:map
-    module_url: /local/recipe-panel-89.js
+    module_url: /local/recipe-panel-99.js
     config:
       # Data you want to make available to panel
       hello: world

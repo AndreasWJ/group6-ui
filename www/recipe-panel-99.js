@@ -151,7 +151,29 @@ class RecipePanel extends LitElement {
 
     // With new recipes fetch all attached recipes
     // These are recommended recipes
-    // this.attachedRecipes = await this.sendRequest('');
+    await this.getAttachedRecipes();
+  }
+
+  async getAttachedRecipesById(recipeId) {
+    // This request returns an array of recipe ids that is recommended with recipe
+    const recipeIds = await this.sendRequest('get_attached_recipes', { config_entry_id: this.configEntryId, recipe_id: recipeId }, (response) => response.response.recipes);
+    const recipes = await this.sendRequest('get_recipes', { config_entry_id: this.configEntryId }, (response) => response.response.recipes);
+    return recipes.filter((recipe) => recipeIds.includes(recipe.recipe_id));
+  };
+
+  async getAttachedRecipes() {
+    // this.attachedRecipes = await this.sendRequest('get_attached_recipes', { config_entry_id: this.configEntryId });
+
+    // attachedRecipes is arrays in arrays [[...], [...], [...]]
+    // The length of attachedRecipes is the length of recipes
+    // The elements that are also arrays are the attached recipes
+    const attachedRecipes = await Promise.all(this.recipes.map((recipe) => this.getAttachedRecipesById(recipe.recipe_id)));
+    const attachedFlatten = attachedRecipes.flat();
+
+    // A recipe might be recommended in many recipes but it should only be displayed once
+    // An array of unique attached recipe ids
+    const ids = [...new Set(attachedFlatten.map((recipe) => recipe.recipe_id))];
+    this.attachedRecipes = ids.map((id) => attachedFlatten.find((recipe) => recipe.recipe_id === id));
   }
 
   async getFavorites() {
@@ -203,11 +225,6 @@ class RecipePanel extends LitElement {
       </div>
     `;
   } */
-
-  async onShowIngredientRecipes(e) {
-    const elem = this.shadowRoot.getElementById("ingredients-checkbox");
-    this.showIngredientRecipes = elem.checked;
-  }
 
   /**
    * @param {*} fieldValues
@@ -350,10 +367,10 @@ class RecipePanel extends LitElement {
         html`<p>Could not fetch recipes</p>`}
         </div>
 
+        ${this.fields.recipeSearch && html`
+          <h2>Recommended recipes</h2>
+        `}
         <div class="container">
-          ${this.fields.recipeSearch && html`
-            <h2>Recommended recipes</h2>
-          `}
           ${this.fields.recipeSearch && this.attachedRecipes && this.attachedRecipes.map((recipe) => {
           return html`
               <div class="card">
@@ -411,4 +428,4 @@ class RecipePanel extends LitElement {
     `;
   }
 }
-customElements.define("recipe-panel-89", RecipePanel);
+customElements.define("recipe-panel-99", RecipePanel);
