@@ -5,7 +5,7 @@ import {
   css,
 } from "https://unpkg.com/lit-element@2.4.0/lit-element.js?module";
 
-class RecipePanel extends LitElement {
+class RecipesPanel extends LitElement {
   static get properties() {
     return {
       hass: { type: Object },
@@ -22,6 +22,7 @@ class RecipePanel extends LitElement {
         calories: { type: Number },
         excludedIngredients: { type: String },
         showIngredientRecipes: { type: Boolean },
+        showFavoriteRecipes: { type: Boolean },
       },
     };
   }
@@ -99,8 +100,8 @@ class RecipePanel extends LitElement {
 
   async setup() {
     await this._fetchConfigEntries();
-    await this.getRecipes();
     await this.getFavorites();
+    await this.getRecipes();
   }
 
   async _fetchConfigEntries() {
@@ -141,6 +142,9 @@ class RecipePanel extends LitElement {
         this.recipes = await this.sendRequest('get_filtered_recipes_by_ingredients', { config_entry_id: this.configEntryId, excluded_ingredients: excluded }, (response) => response.response.recipes);
       } else if (this.fields.showIngredientRecipes) {
         this.recipes = await this.sendRequest('get_recommended_recipes_based_on_ingredients', { config_entry_id: this.configEntryId }, (response) => response.response.recipes);
+      } else if (this.fields.showFavoriteRecipes) {
+        this.recipes = await this.sendRequest('get_recipes', { config_entry_id: this.configEntryId }, (response) => response.response.recipes);
+        this.recipes = this.recipes.filter((recipe) => this.favoriteIds.includes(recipe.recipe_id));
       } else {
         this.recipes = await this.sendRequest('get_recipes', { config_entry_id: this.configEntryId }, (response) => response.response.recipes);
       }
@@ -263,6 +267,13 @@ class RecipePanel extends LitElement {
           this.fields.showIngredientRecipes = false;
         },
       },
+      showFavoriteRecipes: {
+        get: () => this.shadowRoot.getElementById('favorites-checkbox'),
+        reset: (field) => {
+          field.checked = false;
+          this.fields.showFavoriteRecipes = false;
+        },
+      },
     };
 
     // If no value is set, then reset all fields
@@ -336,6 +347,17 @@ class RecipePanel extends LitElement {
       }}"
             />
             <label for="ingredients-checkbox">Show only recipes with ingredients you have</label>
+            <input
+              type="checkbox"
+              id="favorites-checkbox"
+              name="favorites-checkbox"
+              .checked="${this.fields.showFavoriteRecipes}"
+              @click="${(e) => {
+        const elem = this.shadowRoot.getElementById('favorites-checkbox');
+        this.setState({ showFavoriteRecipes: elem.checked });
+      }}"
+            />
+            <label for="favorites-checkbox">Show only favorite recipes</label>
           </div>
         </div>
         <div class="container">
@@ -359,8 +381,10 @@ class RecipePanel extends LitElement {
                 </div>
               `}
               </div>
-              <h2>${recipe.name}</h2>
-              <span style="font-size: 12px;">${recipe.recipe_id}</span>
+              <a href="/recipe/${recipe.recipe_id}" style="color: inherit; text-decoration: underline">
+                <h2>${recipe.name}</h2>
+              </a>
+              <span style="font-size: 12px;">${recipe.description.slice(0, 100)}...</span>
             </div>
           `
         })}` :
@@ -374,25 +398,27 @@ class RecipePanel extends LitElement {
           ${this.fields.recipeSearch && this.attachedRecipes && this.attachedRecipes.map((recipe) => {
           return html`
               <div class="card">
-                <div style="width: 100%; display: flex; justify-content: end;">
-                  ${this.favoriteIds.includes(recipe.recipe_id) ?
+              <div style="width: 100%; display: flex; justify-content: end;">
+                ${this.favoriteIds.includes(recipe.recipe_id) ?
               html`
-                  <div @click="${() => this._removeFavorite(recipe.recipe_id)}" style="cursor: pointer;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-                      <path fill="currentColor" d="m12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53z"/>
-                    </svg>
-                  </div>
-                `: html`
-                  <div @click="${() => this._addFavorite(recipe.recipe_id)}" style="cursor: pointer;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-                      <path fill="currentColor" d="m12.1 18.55l-.1.1l-.11-.1C7.14 14.24 4 11.39 4 8.5C4 6.5 5.5 5 7.5 5c1.54 0 3.04 1 3.57 2.36h1.86C13.46 6 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05M16.5 3c-1.74 0-3.41.81-4.5 2.08C10.91 3.81 9.24 3 7.5 3C4.42 3 2 5.41 2 8.5c0 3.77 3.4 6.86 8.55 11.53L12 21.35l1.45-1.32C18.6 15.36 22 12.27 22 8.5C22 5.41 19.58 3 16.5 3"/>
-                    </svg>
-                  </div>
-                `}
+                <div @click="${() => this._removeFavorite(recipe.recipe_id)}" style="cursor: pointer;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="m12 21.35l-1.45-1.32C5.4 15.36 2 12.27 2 8.5C2 5.41 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.08C13.09 3.81 14.76 3 16.5 3C19.58 3 22 5.41 22 8.5c0 3.77-3.4 6.86-8.55 11.53z"/>
+                  </svg>
                 </div>
-                <h2>${recipe.name}</h2>
-                <span style="font-size: 12px;">${recipe.recipe_id}</span>
+              `: html`
+                <div @click="${() => this._addFavorite(recipe.recipe_id)}" style="cursor: pointer;">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="m12.1 18.55l-.1.1l-.11-.1C7.14 14.24 4 11.39 4 8.5C4 6.5 5.5 5 7.5 5c1.54 0 3.04 1 3.57 2.36h1.86C13.46 6 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5c0 2.89-3.14 5.74-7.9 10.05M16.5 3c-1.74 0-3.41.81-4.5 2.08C10.91 3.81 9.24 3 7.5 3C4.42 3 2 5.41 2 8.5c0 3.77 3.4 6.86 8.55 11.53L12 21.35l1.45-1.32C18.6 15.36 22 12.27 22 8.5C22 5.41 19.58 3 16.5 3"/>
+                  </svg>
+                </div>
+              `}
               </div>
+              <a href="/recipe/${recipe.recipe_id}" style="color: inherit; text-decoration: underline">
+                <h2>${recipe.name}</h2>
+              </a>
+              <span style="font-size: 12px;">${recipe.description.slice(0, 100)}...</span>
+            </div>
             `;
         })}
         </div>
@@ -428,4 +454,4 @@ class RecipePanel extends LitElement {
     `;
   }
 }
-customElements.define("recipe-panel-99", RecipePanel);
+customElements.define("recipes-panel-106", RecipesPanel);
